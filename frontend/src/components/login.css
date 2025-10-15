@@ -1,0 +1,98 @@
+/* Global Reset & Typography */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+  
+  body {
+    background-color: #f5f5f5; /* light grey background */
+    color: #1a1a1a; /* default dark text */
+    line-height: 1.6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  
+  /* Login Page Container */
+  .login-page {
+    background-color: #ffffff; /* white card */
+    padding: 50px 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    width: 400px;
+    text-align: center;
+    transition: transform 0.3s ease;
+  }
+  
+  .login-page:hover {
+    transform: translateY(-3px);
+  }
+  
+  /* Headline */
+  .login-page h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 30px;
+    color: #0f172a; /* dark slate */
+  }
+  
+  /* Form Inputs */
+  .login-page input {
+    width: 100%;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    border: 1px solid #cbd5e1; /* soft grey border */
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  .login-page input:focus {
+    outline: none;
+    border-color: #475569; /* medium grey */
+    box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.2);
+  }
+  
+  /* Button */
+  .login-page button {
+    width: 100%;
+    padding: 14px 16px;
+    background-color: #0f172a; /* dark slate */
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+  }
+  
+  .login-page button:hover {
+    background-color: #475569; /* medium grey */
+    transform: translateY(-2px);
+  }
+  
+  /* Optional Links (e.g., Forgot Password / Signup) */
+  .login-page a {
+    display: inline-block;
+    margin-top: 15px;
+    font-size: 0.9rem;
+    color: #475569;
+    text-decoration: none;
+    transition: color 0.3s ease;
+  }
+  
+  .login-page a:hover {
+    color: #0f172a;
+  }
+  
+  /* Responsive for smaller screens */
+  @media (max-width: 500px) {
+    .login-page {
+      width: 90%;
+      padding: 40px 20px;
+    }
+  }
+  
