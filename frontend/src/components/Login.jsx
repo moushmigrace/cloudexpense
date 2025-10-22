@@ -1,29 +1,31 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Amplify } from 'aws-amplify';
+import * as Auth from '@aws-amplify/auth';
+import awsConfig from '../services/aws-config';
+
+Amplify.configure(awsConfig);
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
 
-    // Simulate an API call
-    setTimeout(() => {
-      // Mock login logic: fail for any password other than "password"
-      if (email && password === 'password') {
-        console.log('Login successful');
-        // In a real app, you would navigate to the home page here.
-        // For this environment, we'll just log it.
-        // window.location.href = '/home'; 
-      } else {
-        setError('Invalid email or password. Please try again.');
-      }
+    try {
+      await Auth.signIn(email, password);
+      navigate('/home');
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Invalid email or password. Please try again.');
       setIsSubmitting(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -38,7 +40,7 @@ export default function Login() {
       display: 'flex',
       flexDirection: 'column',
       fontFamily: 'system-ui, -apple-system, sans-serif',
-      backgroundColor: '#f5f5f5', // Grayscale background
+      backgroundColor: '#f5f5f5',
       overflowY: 'auto',
       overflowX: 'hidden'
     }}>
@@ -59,7 +61,7 @@ export default function Login() {
           <div style={{
             fontSize: '1.5rem',
             fontWeight: '700',
-            color: '#212121', // Dark gray
+            color: '#212121',
             display: 'flex',
             alignItems: 'center',
             gap: '0.5rem'
@@ -73,9 +75,9 @@ export default function Login() {
             <a href="/dashboard" className="nav-link" style={{ textDecoration: 'none', color: '#757575', fontWeight: '500' }}>Dashboard</a>
             <a href="/login" className="nav-link active" style={{
               textDecoration: 'none',
-              color: '#212121', // Dark gray for active link
+              color: '#212121',
               fontWeight: '600',
-              borderBottom: '2px solid #212121', // Dark gray border
+              borderBottom: '2px solid #212121',
               paddingBottom: '0.25rem',
             }}>Login</a>
           </div>
@@ -98,36 +100,29 @@ export default function Login() {
           width: '100%',
           maxWidth: '450px'
         }}>
-          {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
             <h1 style={{ fontSize: '2.25rem', fontWeight: '700', color: '#212121', margin: '0 0 0.5rem 0' }}>Welcome Back</h1>
             <p style={{ fontSize: '1rem', color: '#757575', margin: 0 }}>Sign in to continue to your dashboard.</p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleLogin}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              
-              {/* Form Group: Email */}
               <div>
                 <label htmlFor="email" style={styles.label}>Email Address</label>
                 <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required style={styles.input} className="form-input" />
               </div>
 
-              {/* Form Group: Password */}
               <div>
                 <label htmlFor="password" style={styles.label}>Password</label>
                 <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required style={styles.input} className="form-input" />
               </div>
-              
-              {/* Error Message */}
+
               {error && (
                 <div style={styles.errorBox}>
                   {error}
                 </div>
               )}
 
-              {/* Submit Button */}
               <button type="submit" className="submit-btn" disabled={isSubmitting} style={isSubmitting ? {...styles.button, ...styles.buttonDisabled} : styles.button}>
                 {isSubmitting ? 'Signing In...' : 'Sign In'}
               </button>
@@ -138,8 +133,8 @@ export default function Login() {
 
       {/* Footer */}
       <footer style={{
-        backgroundColor: '#212121', // Dark gray footer
-        color: '#a0a0a0', // Light gray footer text
+        backgroundColor: '#212121',
+        color: '#a0a0a0',
         padding: '2.5rem 2rem',
       }}>
         <div style={{
@@ -158,42 +153,41 @@ export default function Login() {
         .nav-link:hover { color: #000000 !important; }
         .nav-link.active { pointer-events: none; }
         .submit-btn:hover:not(:disabled) {
-          background-color: #616161 !important; /* Darker gray on hover */
+          background-color: #616161 !important;
           transform: translateY(-2px);
           box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
         }
         .form-input:focus {
-          border-color: #424242 !important; /* Dark gray focus border */
-          box-shadow: 0 0 0 3px rgba(66, 66, 66, 0.2) !important; /* Gray focus shadow */
+          border-color: #424242 !important;
+          box-shadow: 0 0 0 3px rgba(66, 66, 66, 0.2) !important;
         }
       `}</style>
     </div>
   );
 }
 
-// Grouped styles for cleaner JSX in grayscale
 const styles = {
   label: {
     display: 'block',
     marginBottom: '0.5rem',
     fontSize: '0.9rem',
     fontWeight: '600',
-    color: '#424242', // Dark gray
+    color: '#424242',
   },
   input: {
     width: '100%',
     padding: '0.875rem 1rem',
     borderRadius: '8px',
-    border: '1px solid #e0e0e0', // Light gray border
+    border: '1px solid #e0e0e0',
     fontSize: '1rem',
     backgroundColor: '#ffffff',
-    color: '#212121', // Darkest gray text
+    color: '#212121',
     transition: 'border-color 0.2s, box-shadow 0.2s',
     outline: 'none',
   },
   button: {
     width: '100%',
-    backgroundColor: '#424242', // Dark gray button
+    backgroundColor: '#424242',
     color: '#ffffff',
     padding: '1rem 2rem',
     borderRadius: '10px',
@@ -206,13 +200,13 @@ const styles = {
     transition: 'all 0.3s ease',
   },
   buttonDisabled: {
-    backgroundColor: '#bdbdbd', // Medium gray for disabled
+    backgroundColor: '#bdbdbd',
     cursor: 'not-allowed',
     boxShadow: 'none',
   },
   errorBox: {
-    backgroundColor: '#eeeeee', // Light gray for error background
-    color: '#212121', // Dark gray for error text
+    backgroundColor: '#eeeeee',
+    color: '#212121',
     border: '1px solid #e0e0e0',
     padding: '0.875rem 1rem',
     borderRadius: '8px',
@@ -221,4 +215,3 @@ const styles = {
     fontWeight: '500',
   }
 };
-
