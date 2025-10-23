@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from '../services/api';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // 1. Import useNavigate
 import { FaTrash } from 'react-icons/fa';
+import { signOut } from 'aws-amplify/auth'; // 1. Import signOut
 
 export default function Home() {
   const [allExpenses, setAllExpenses] = useState([]);
@@ -17,6 +18,7 @@ export default function Home() {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const navigate = useNavigate(); // 1. Initialize useNavigate
 
   useEffect(() => {
     const fetchExpenses = async () => {
@@ -32,6 +34,16 @@ export default function Home() {
     };
     fetchExpenses();
   }, []);
+
+  // 2. Create the handleLogout function
+  const handleLogout = async () => {
+    try {
+      await signOut({ global: true }); // Use global signout to clear all sessions
+      navigate('/login'); // Redirect to login page
+    } catch (error) {
+      console.error('Error signing out: ', error);
+    }
+  };
 
   const handleOpenModal = (receiptUrl) => {
     setSelectedReceipt(receiptUrl);
@@ -107,7 +119,8 @@ export default function Home() {
           <div style={styles.navLinks}>
             <Link to="/home" style={styles.navLinkActive}>Home</Link>
             <Link to="/dashboard" style={styles.navLink}>Dashboard</Link>
-            <Link to="/login" style={styles.navLink}>Login</Link>
+            {/* 3. Add the Logout Button */}
+            <button onClick={handleLogout} style={styles.logoutButton}>Logout</button>
           </div>
         </div>
       </nav>
@@ -219,6 +232,17 @@ const styles = {
   navLinks: { display:'flex', gap:'2rem', alignItems:'center' },
   navLink: { textDecoration:'none', color:'#757575', fontWeight:'500', fontSize:'1rem' },
   navLinkActive: { textDecoration:'none', color:'#212121', fontWeight:'600', fontSize:'1rem', borderBottom:'2px solid #212121', paddingBottom:'0.25rem' },
+  // 4. Add the style for the logout button
+  logoutButton: {
+    background: 'none',
+    border: 'none',
+    color: '#757575',
+    fontWeight: '500',
+    fontSize: '1rem',
+    cursor: 'pointer',
+    padding: 0,
+    fontFamily: 'inherit',
+  },
   main: { flex:'1', maxWidth:'1200px', width:'100%', margin:'0 auto', padding:'3rem 2rem' },
   header: { display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'2.5rem' },
   title: { fontSize:'2.5rem', fontWeight:'700', color:'#212121', margin:'0 0 0.5rem 0' },
