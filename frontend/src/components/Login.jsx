@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react'; // 1. Import useEffect
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Amplify } from 'aws-amplify';
-import { 
-  signIn, 
-  signUp, 
-  fetchAuthSession, 
-  confirmSignIn, 
+import {
+  signIn,
+  signUp,
+  fetchAuthSession,
+  confirmSignIn,
   confirmSignUp,
   resendSignUpCode
 } from 'aws-amplify/auth';
@@ -26,17 +26,22 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const navigate = useNavigate();
+  const [usernameForVerification, setUsernameForVerification] = useState('');
 
-  // 2. Add useEffect to check for an existing session on component mount
   useEffect(() => {
+    // Attempt to load username from localStorage on mount,
+    // in case the user refreshed the verification page
+    const storedUsername = localStorage.getItem('usernameToVerify');
+    if (storedUsername) {
+        setUsernameForVerification(storedUsername);
+    }
+
     const checkAuthStatus = async () => {
       try {
         await fetchAuthSession();
-        // If the above line doesn't throw, the user is already authenticated
         console.log("✅ User is already signed in. Redirecting to /home...");
         navigate('/home');
       } catch (err) {
-        // This error means the user is not signed in, so we show the login page
         console.log("ℹ️ No active session found. Showing login page.");
       }
     };
@@ -63,12 +68,16 @@ export default function Login() {
     }
 
     try {
+      const randomUsername = crypto.randomUUID();
+      setUsernameForVerification(randomUsername); // Set in state
+      localStorage.setItem('usernameToVerify', randomUsername); // Store in localStorage
+
       const result = await signUp({
-        username: email.toLowerCase().trim(), // Use email as the username for consistency
+        username: randomUsername,
         password,
         options: {
           userAttributes: {
-            email: email.toLowerCase().trim(), 
+            email: email.toLowerCase().trim(),
           }
         }
       });
@@ -78,6 +87,7 @@ export default function Login() {
         setSuccess('Account created! Please check your email for the verification code.');
       } else if (result.isSignUpComplete) {
         setSuccess('Account created successfully! You can now sign in.');
+        localStorage.removeItem('usernameToVerify'); // Clean up if auto-confirmed
         setTimeout(() => {
           setIsSignUp(false);
           setSuccess('');
@@ -85,11 +95,17 @@ export default function Login() {
       }
     } catch (err) {
       console.error('❌ Sign-up error:', err);
+      // Clear potentially invalid username if signup failed
+      localStorage.removeItem('usernameToVerify');
+      setUsernameForVerification('');
       if (err.name === 'UsernameExistsException') {
         setError('An account with this email already exists');
       } else if (err.name === 'InvalidPasswordException') {
         setError('Password does not meet requirements');
-      } else {
+      } else if (err.name === 'InvalidParameterException' && err.message.includes('Username cannot be of email format')) {
+         setError('Cognito setup error: Username cannot be email when email alias is enabled.');
+      }
+      else {
         setError(err.message || 'Failed to create account. Please try again.');
       }
     } finally {
@@ -103,19 +119,30 @@ export default function Login() {
     setSuccess('');
     setIsSubmitting(true);
 
+    // Get username from state OR localStorage as a fallback
+    const usernameToUse = usernameForVerification || localStorage.getItem('usernameToVerify');
+
+    if (!usernameToUse) {
+       setError("Could not determine username for verification. Please try signing up again.");
+       setIsSubmitting(false);
+       return;
+    }
+
     try {
       const result = await confirmSignUp({
-        username: email.toLowerCase().trim(),
+        username: usernameToUse, // Use the determined username
         confirmationCode: verificationCode
       });
 
       if (result.isSignUpComplete) {
         setSuccess('Email verified successfully! You can now sign in.');
+        localStorage.removeItem('usernameToVerify'); // Clean up localStorage on success
         setTimeout(() => {
           setIsSignUp(false);
           setNeedsVerification(false);
           setSuccess('');
           setVerificationCode('');
+          setUsernameForVerification(''); // Clear state
         }, 2000);
       }
     } catch (err) {
@@ -136,8 +163,18 @@ export default function Login() {
     setError('');
     setSuccess('');
     setIsSubmitting(true);
+
+    // Get username from state OR localStorage
+    const usernameToUse = usernameForVerification || localStorage.getItem('usernameToVerify');
+
+     if (!usernameToUse) {
+       setError("Could not determine username to resend code. Please try signing up again.");
+       setIsSubmitting(false);
+       return;
+    }
+
     try {
-      await resendSignUpCode({ username: email.toLowerCase().trim() });
+      await resendSignUpCode({ username: usernameToUse }); // Use the determined username
       setSuccess('A new verification code has been sent to your email.');
     } catch (err) {
       console.error('Error resending code:', err);
@@ -152,47 +189,49 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
-  
+
     try {
+      // Login uses the email (alias)
       const result = await signIn({
         username: email.toLowerCase().trim(),
         password
       });
-  
+
       if (result.nextStep?.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
         setRequireNewPassword(true);
         setIsSubmitting(false);
         return;
       }
-  
+
       if (result.isSignedIn) {
-        const uid = result.attributes?.sub || result.username || ''; 
-        const token = result.signInUserSession?.idToken?.jwtToken || '';
-      
-        if (!uid || !token) {
-          console.error('User ID or Token missing:', uid, token);
-          return;
-        }
-      
-        localStorage.setItem('userId', uid);
-        localStorage.setItem('userToken', token);
-        localStorage.setItem('userEmail', email.toLowerCase().trim());
-      
-        console.log('Saved userId:', localStorage.getItem('userId'));
-        console.log('Saved userToken:', localStorage.getItem('userToken'));
-      
-        navigate('/dashboard');
+        navigate('/home'); // Redirect to home after successful login
       }
-      
-      
+
+
     } catch (err) {
       console.error('❌ Login error:', err);
-      setError('Invalid email or password. Please try again.');
+       if (err.name === 'UserNotFoundException' || err.name === 'NotAuthorizedException') {
+         setError('Invalid email or password. Please try again.');
+       } else if (err.name === 'UserNotConfirmedException') {
+         setError('Account not confirmed. Please check your email or resend the verification code.');
+         setNeedsVerification(true);
+         // Try to retrieve username from local storage if the user just signed up
+         const storedUsername = localStorage.getItem('usernameToVerify');
+         if (storedUsername) {
+             setUsernameForVerification(storedUsername);
+         } else {
+            // If we don't have it, we can't reliably proceed with verification here
+             console.warn("UserNotConfirmedException: Cannot determine original username for verification flow from login.")
+         }
+       }
+      else {
+         setError('Login failed. Please try again.');
+       }
     } finally {
       setIsSubmitting(false);
     }
   };
-  
+
   const handleNewPasswordSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -256,7 +295,7 @@ export default function Login() {
               <span style={{ fontSize: '1.8rem' }}>💰</span>
               <span>ExpenseTracker</span>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
               <a href="/home" style={{ textDecoration: 'none', color: '#757575', fontWeight: '500' }}>Home</a>
               <a href="/dashboard" style={{ textDecoration: 'none', color: '#757575', fontWeight: '500' }}>Dashboard</a>
@@ -330,18 +369,18 @@ export default function Login() {
                     <button
                       type="button"
                       onClick={handleResendCode}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || !(usernameForVerification || localStorage.getItem('usernameToVerify'))} // Disable if no username known
                       style={styles.linkButton}
                     >
                       Resend verification code
                     </button>
                   </div>
-                  
+
                   {error && <div style={styles.errorBox}>{error}</div>}
 
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !(usernameForVerification || localStorage.getItem('usernameToVerify'))} // Disable if no username known
                     style={isSubmitting ? { ...styles.button, ...styles.buttonDisabled } : styles.button}
                   >
                     {isSubmitting ? 'Verifying...' : 'Verify Email'}
@@ -353,6 +392,8 @@ export default function Login() {
                       setIsSignUp(false);
                       setError('');
                       setSuccess('');
+                      setUsernameForVerification(''); // Clear state
+                      localStorage.removeItem('usernameToVerify'); // Clear localStorage
                     }}
                     style={styles.secondaryButton}
                   >
@@ -551,7 +592,7 @@ const styles = {
     border: '1px solid #e0e0e0',
     fontSize: '1rem',
     backgroundColor: '#ffffff',
-    color: '#212121', // Corrected a typo here from '21212fs'
+    color: '#212121',
     transition: 'border-color 0.2s, box-shadow 0.2s',
     outline: 'none',
   },
@@ -618,3 +659,4 @@ const styles = {
     marginBottom: '1.5rem',
   },
 };
+
