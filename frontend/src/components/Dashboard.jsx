@@ -1,30 +1,68 @@
 import React, { useEffect, useState } from 'react';
-import axios from '../services/api';
+import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
-  const userToken = localStorage.getItem('userToken');
 
   useEffect(() => {
-    if (!userToken) {
-      navigate('/login');
-      return;
-    }
-
     const fetchExpenses = async () => {
+      // Get user credentials from localStorage
+      const userId = localStorage.getItem('userId');
+      const userToken = localStorage.getItem('userToken');
+      const userEmail = localStorage.getItem('userEmail');
+
+      console.log('🔍 Fetching expenses for user:', { userId, userEmail, hasToken: !!userToken });
+
+      // Redirect to login if not authenticated
+      if (!userId || !userToken) {
+        console.log('⚠️ No credentials found, redirecting to login');
+        navigate('/login');
+        return;
+      }
+
       try {
-        const res = await axios.get('/api/expense/all', {
-          headers: { Authorization: `Bearer ${userToken}` },
+        setLoading(true);
+        setError('');
+
+        // Make API call with user's token
+        const res = await axios.get(`/api/user/expense/user/${userId}`, {
+          headers: { 
+            Authorization: `Bearer ${userToken}`,
+            'Content-Type': 'application/json'
+          },
         });
+
+        console.log('✅ Expenses fetched successfully:', res.data);
         setExpenses(res.data);
+
       } catch (err) {
-        console.error('Error fetching expenses:', err);
-        if (err.response && err.response.status === 401) {
-          navigate('/login');
+        console.error('❌ Error fetching expenses:', err);
+        
+        if (err.response) {
+          // Server responded with error
+          if (err.response.status === 401) {
+            console.log('🔒 Unauthorized - clearing credentials and redirecting');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('userEmail');
+            navigate('/login');
+          } else if (err.response.status === 404) {
+            // No expenses found - this is okay, just empty state
+            console.log('📭 No expenses found for user');
+            setExpenses([]);
+          } else {
+            setError('Failed to load expenses. Please try again.');
+          }
+        } else if (err.request) {
+          // Request made but no response
+          setError('Unable to connect to server. Please check your connection.');
+        } else {
+          setError('An unexpected error occurred.');
         }
       } finally {
         setLoading(false);
@@ -32,17 +70,20 @@ export default function Dashboard() {
     };
 
     fetchExpenses();
-  }, [userToken, navigate]);
+  }, [navigate]);
 
-  // Prepare chart data: sum amounts by category
+  // Calculate category totals from expenses
   const categoryTotals = expenses.reduce((acc, curr) => {
     acc[curr.category] = (acc[curr.category] || 0) + Number(curr.amount);
     return acc;
   }, {});
+
   const chartData = Object.entries(categoryTotals).map(([category, amount]) => ({
     name: category,
     total: parseFloat(amount.toFixed(2)),
   }));
+
+  const totalSpending = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
 
   return (
     <div
@@ -97,14 +138,12 @@ export default function Dashboard() {
           <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
             <a
               href="/home"
-              className="nav-link"
               style={{ textDecoration: 'none', color: '#757575', fontWeight: '500' }}
             >
               Home
             </a>
             <a
               href="/dashboard"
-              className="nav-link active"
               style={{
                 textDecoration: 'none',
                 color: '#212121',
@@ -117,7 +156,6 @@ export default function Dashboard() {
             </a>
             <a
               href="/login"
-              className="nav-link"
               style={{ textDecoration: 'none', color: '#757575', fontWeight: '500' }}
             >
               Login
@@ -146,12 +184,102 @@ export default function Dashboard() {
               margin: '0 0 0.5rem 0',
             }}
           >
-            Expense Dashboard
+            My Expense Dashboard
           </h1>
           <p style={{ fontSize: '1rem', color: '#757575', margin: 0 }}>
-            Visualizing your spending by category
+            {localStorage.getItem('userEmail') || 'Your'} spending overview
           </p>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div
+            style={{
+              backgroundColor: '#ffebee',
+              color: '#c62828',
+              padding: '1rem',
+              borderRadius: '8px',
+              marginBottom: '2rem',
+              border: '1px solid #ef5350',
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '5rem 2rem',
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+            }}
+          >
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
+            <p style={{ color: '#757575', fontSize: '1.1rem' }}>Loading your expenses...</p>
+          </div>
+        )}
+
+        {/* Stats Summary */}
+        {!loading && expenses.length > 0 && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '1.5rem',
+              marginBottom: '2rem',
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: '1.5rem',
+                borderRadius: '12px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              }}
+            >
+              <p style={{ color: '#757575', fontSize: '0.9rem', margin: '0 0 0.5rem 0' }}>
+                Total Expenses
+              </p>
+              <p style={{ fontSize: '2rem', fontWeight: '700', color: '#212121', margin: 0 }}>
+                {expenses.length}
+              </p>
+            </div>
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: '1.5rem',
+                borderRadius: '12px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              }}
+            >
+              <p style={{ color: '#757575', fontSize: '0.9rem', margin: '0 0 0.5rem 0' }}>
+                Total Spending
+              </p>
+              <p style={{ fontSize: '2rem', fontWeight: '700', color: '#212121', margin: 0 }}>
+                ${totalSpending.toFixed(2)}
+              </p>
+            </div>
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: '1.5rem',
+                borderRadius: '12px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              }}
+            >
+              <p style={{ color: '#757575', fontSize: '0.9rem', margin: '0 0 0.5rem 0' }}>
+                Categories
+              </p>
+              <p style={{ fontSize: '2rem', fontWeight: '700', color: '#212121', margin: 0 }}>
+                {Object.keys(categoryTotals).length}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Chart Section */}
         {!loading && expenses.length > 0 && (
@@ -164,7 +292,17 @@ export default function Dashboard() {
               height: '500px',
             }}
           >
-            <ResponsiveContainer width="100%" height="100%">
+            <h2
+              style={{
+                fontSize: '1.5rem',
+                fontWeight: '600',
+                color: '#212121',
+                marginBottom: '1.5rem',
+              }}
+            >
+              Spending by Category
+            </h2>
+            <ResponsiveContainer width="100%" height="90%">
               <BarChart
                 data={chartData}
                 margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
@@ -192,6 +330,7 @@ export default function Dashboard() {
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                   }}
                   labelStyle={{ fontWeight: '600', color: '#212121' }}
+                  formatter={(value) => [`$${value}`, 'Total']}
                 />
                 <Bar dataKey="total" fill="#424242" radius={[8, 8, 0, 0]} />
               </BarChart>
@@ -200,7 +339,7 @@ export default function Dashboard() {
         )}
 
         {/* Empty State */}
-        {!loading && expenses.length === 0 && (
+        {!loading && expenses.length === 0 && !error && (
           <div
             style={{
               textAlign: 'center',
@@ -232,7 +371,6 @@ export default function Dashboard() {
             </p>
             <a
               href="/bill"
-              className="get-started-btn"
               style={{
                 backgroundColor: '#424242',
                 color: '#ffffff',
@@ -273,20 +411,6 @@ export default function Dashboard() {
           </p>
         </div>
       </footer>
-
-      <style>{`
-        body { margin: 0 !important; padding: 0 !important; }
-        #root { width: 100%; height: 100%; }
-        * { box-sizing: border-box; }
-        .nav-link:hover { color: #000000 !important; }
-        .nav-link.active { pointer-events: none; }
-        .get-started-btn:hover {
-          background-color: #616161 !important;
-          transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
-        }
-        .recharts-tooltip-label { font-weight: bold; }
-      `}</style>
     </div>
   );
 }

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import axios from '../services/api';
+import React, { useState, useEffect } from 'react';
+import api from '../services/api';
 import { useNavigate, Link } from 'react-router-dom';
+import { fetchAuthSession } from 'aws-amplify/auth';
 
 export default function Bill() {
   const [form, setForm] = useState({
-    user_id: 1, // In real app, this should come from logged-in user context
+    // Remove user_id - backend will get it from token
     amount: '',
     category: '',
     vendor: '',
@@ -14,6 +15,19 @@ export default function Bill() {
   const [fileName, setFileName] = useState('No file chosen');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        await fetchAuthSession();
+      } catch (error) {
+        console.error('Not authenticated');
+        navigate('/login');
+      }
+    };
+    checkAuth();
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -45,12 +59,15 @@ export default function Bill() {
     }
 
     try {
-      await axios.post('/expense/add', data, {
+      // ✅ Changed from '/api/expense/add' to '/expense/add'
+      await api.post('/expense/add', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      alert('Expense added successfully!');
       navigate('/home');
     } catch (error) {
       console.error('Error submitting the bill:', error);
+      alert('Failed to add expense. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -85,34 +102,86 @@ export default function Bill() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div>
                 <label htmlFor="amount" style={styles.label}>Amount</label>
-                <input type="number" id="amount" name="amount" value={form.amount} onChange={handleChange} placeholder="e.g., 45.99" required style={styles.input} className="form-input" />
+                <input 
+                  type="number" 
+                  step="0.01"
+                  id="amount" 
+                  name="amount" 
+                  value={form.amount} 
+                  onChange={handleChange} 
+                  placeholder="e.g., 45.99" 
+                  required 
+                  style={styles.input} 
+                  className="form-input" 
+                />
               </div>
 
               <div>
                 <label htmlFor="category" style={styles.label}>Category</label>
-                <input type="text" id="category" name="category" value={form.category} onChange={handleChange} placeholder="e.g., Food, Transport" required style={styles.input} className="form-input" />
+                <input 
+                  type="text" 
+                  id="category" 
+                  name="category" 
+                  value={form.category} 
+                  onChange={handleChange} 
+                  placeholder="e.g., Food, Transport" 
+                  required 
+                  style={styles.input} 
+                  className="form-input" 
+                />
               </div>
 
               <div>
                 <label htmlFor="vendor" style={styles.label}>Vendor</label>
-                <input type="text" id="vendor" name="vendor" value={form.vendor} onChange={handleChange} placeholder="e.g., Starbucks" required style={styles.input} className="form-input" />
+                <input 
+                  type="text" 
+                  id="vendor" 
+                  name="vendor" 
+                  value={form.vendor} 
+                  onChange={handleChange} 
+                  placeholder="e.g., Starbucks" 
+                  required 
+                  style={styles.input} 
+                  className="form-input" 
+                />
               </div>
 
               <div>
                 <label htmlFor="expense_date" style={styles.label}>Expense Date</label>
-                <input type="date" id="expense_date" name="expense_date" value={form.expense_date} onChange={handleChange} required style={styles.input} className="form-input" />
+                <input 
+                  type="date" 
+                  id="expense_date" 
+                  name="expense_date" 
+                  value={form.expense_date} 
+                  onChange={handleChange} 
+                  required 
+                  style={styles.input} 
+                  className="form-input" 
+                />
               </div>
 
               <div>
                 <label style={styles.label}>Upload Receipt (Optional)</label>
                 <div style={styles.fileInputWrapper}>
-                  <label htmlFor="receipt-upload" style={styles.fileUploadLabel}>Choose File</label>
-                  <input type="file" id="receipt-upload" onChange={handleFileChange} style={{ display: 'none' }} />
+                  <label htmlFor="receipt-upload" style={styles.fileUploadLabel}>
+                    Choose File
+                  </label>
+                  <input 
+                    type="file" 
+                    id="receipt-upload" 
+                    onChange={handleFileChange} 
+                    accept="image/*,.pdf"
+                    style={{ display: 'none' }} 
+                  />
                   <span style={{ color: '#757575', marginLeft: '1rem' }}>{fileName}</span>
                 </div>
               </div>
 
-              <button type="submit" disabled={isSubmitting} style={isSubmitting ? {...styles.button, ...styles.buttonDisabled} : styles.button}>
+              <button 
+                type="submit" 
+                disabled={isSubmitting} 
+                style={isSubmitting ? {...styles.button, ...styles.buttonDisabled} : styles.button}
+              >
                 {isSubmitting ? 'Submitting...' : 'Add Expense'}
               </button>
             </div>
@@ -130,7 +199,7 @@ export default function Bill() {
   );
 }
 
-// Styles
+// Styles remain the same
 const pageStyles = {
   container: {
     position: 'fixed',
